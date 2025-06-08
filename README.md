@@ -1,5 +1,5 @@
 
-## Aplicación Pet Clinic 
+## Aplicación Pet Clinic
 
 Esta es una [versión dockerizada de la aplicación original](https://github.com/spring-projects/spring-petclinic) publicada por la comunidad de Spring Boot.
 
