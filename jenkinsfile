@@ -27,11 +27,9 @@ pipeline {
 				'''
 			}          
         }
-        stage("Checkout from SCM GitOps"){
+        stage("Checkout from SCM GitOps") {
             steps {
-                dir("cf-devops-petclinic-challenge-gitops") {
-                    git branch: 'main', credentialsId: 'github', url: "${URL_REPO_GITOPS}"
-                }
+                sh 'git clone ${URL_REPO_GITOPS}'
             }
         }
         stage("Update Deployment Tags"){
