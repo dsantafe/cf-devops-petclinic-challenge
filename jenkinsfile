@@ -48,6 +48,8 @@ pipeline {
                 dir("cf-devops-petclinic-challenge-gitops") {
                     withCredentials([gitUsernamePassword(credentialsId: 'github', gitToolName: 'Default')]) {
                         sh '''
+                            git config --global user.email "ci@example.com"
+                            git config --global user.name "CI Bot"
                             git add dev/petclinic-deployment.yml
                             git commit -m "Updated Deployment Manifest Jenkinsfile"
                             git push -u origin main
