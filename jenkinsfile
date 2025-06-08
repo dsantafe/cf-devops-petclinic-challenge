@@ -1,0 +1,84 @@
+pipeline {
+    agent any
+    environment {
+        APP_PETCLINIC       =   "petclinic"
+        RELEASE             =   "1.0.0"
+        REGISTRY            =   "dsantafe"
+        IMAGE_PETCLINIC     =   "${REGISTRY}" + "/" + "${APP_PETCLINIC}"
+        IMAGE_TAG           =   "${RELEASE}-${BUILD_NUMBER}"
+        DOCKER_HUB_LOGIN    =   credentials('dockerhub')
+        ULR_REPO            =   "https://github.com/dsantafe/cf-devops-petclinic-challenge"
+        URL_REPO_GITOPS     =   "https://github.com/dsantafe/cf-devops-petclinic-challenge-gitops"
+    }
+
+    stages {        
+        stage("Login DockerHub"){
+            steps {
+               sh 'docker login --username=${DOCKER_HUB_LOGIN_USR} --password=${DOCKER_HUB_LOGIN_PSW}'
+            }
+        }
+        stage("Build & Push Docker Image") {
+            steps {
+				sh '''
+					docker build -t ${IMAGE_PETCLINIC}               
+					docker tag ${IMAGE_PETCLINIC} ${IMAGE_PETCLINIC}:${IMAGE_TAG}
+					docker push ${IMAGE_PETCLINIC}:${IMAGE_TAG}
+					docker push ${IMAGE_PETCLINIC}:latest
+				'''
+			}          
+        }
+        stage("Checkout from SCM GitOps"){
+            steps {
+                dir("cf-devops-petclinic-challenge-gitops") {
+                    git branch: 'main', credentialsId: 'github', url: "${URL_REPO_GITOPS}"
+                }
+            }
+        }
+        stage("Update Deployment Tags"){
+            steps {
+                dir("cf-devops-petclinic-challenge-gitops") {
+                    sh '''               
+                        sed -i -- "s|${IMAGE_PETCLINIC}.*|${IMAGE_PETCLINIC}:${IMAGE_TAG}|g"    dev/petclinic-deployment.yml
+                    '''
+                }
+            }
+        }
+        stage("Push Changed Deployment File"){
+            steps {
+                dir("cf-devops-petclinic-challenge-gitops") {
+                    withCredentials([gitUsernamePassword(credentialsId: 'github', gitToolName: 'Default')]) {
+                        sh '''
+                            git add dev/petclinic-deployment.yml
+                            git commit -m "Updated Deployment Manifest Jenkinsfile"
+                            git push -u origin main
+                        '''
+                    }
+                }
+            }
+        }
+        stage('Deploy and Notify') {
+            steps {
+                echo "Despliegue completado exitosamente"
+                mail bcc: '', 
+                    body: "The deployment has been ${currentBuild.currentResult}. Details:\n\nBuild number: ${BUILD_NUMBER}\nProject: ${JOB_NAME}\nBuild URL: ${BUILD_URL}",
+                    cc: '', 
+                    from: '', 
+                    replyTo: '', 
+                    subject: "${JOB_NAME}: Build status is ${currentBuild.currentResult}", 
+                    to: 'santafedavid01@gmail.com'
+            }
+        }
+    }
+
+    post {
+        failure {
+            mail bcc: '', 
+                body: "The deployment has been ${currentBuild.currentResult}. Details:\n\nBuild number: ${BUILD_NUMBER}\nProject: ${JOB_NAME}\nBuild URL: ${BUILD_URL}",
+                cc: '', 
+                from: '', 
+                replyTo: '', 
+                subject: "${JOB_NAME} - Build # ${env.BUILD_NUMBER} - Failed", 
+                to: 'santafedavid01@gmail.com'
+            }
+    }
+}
